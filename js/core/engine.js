@@ -4,35 +4,12 @@
 
 /**
  * Run Monte Carlo retirement simulations.
- *
- * Uses a log-normal return model with Cholesky-like cross-asset
- * correlation. US and international equities share a common
- * market factor; bonds have low correlation to equities.
- *
- * @param {object} params
- * @param {number} params.portfolio    - Starting portfolio value ($)
- * @param {number} params.usEqPct      - US equity allocation (0–1)
- * @param {number} params.intlEqPct    - Intl equity allocation (0–1)
- * @param {number} params.bndPct       - Bond allocation (0–1)
- * @param {number} params.cshPct       - Cash allocation (0–1)
- * @param {number} params.years        - Retirement duration (years)
- * @param {string} params.strategy     - Withdrawal strategy ID
- * @param {number} params.grossAnnWd   - Annual gross withdrawal ($)
- * @param {number} params.wdRate       - Withdrawal rate (0–1) for % strategies
- * @param {Array}  params.incomes      - Income source objects
- * @param {Array}  params.extras       - Extra expense objects
- * @param {number} params.runs         - Number of simulation runs
- * @param {number} params.inflation    - Assumed annual inflation (0–1)
- * @returns {Array} Array of simulation result objects
  */
 function monteCarlo({
   portfolio, usEqPct, intlEqPct, bndPct, cshPct,
   years, strategy, grossAnnWd, wdRate,
   incomes, extras, runs, inflation,
 }) {
-  // ── Inflation adjustment ────────────────────────────────────
-  // Historical data embeds ~3% inflation. Shift real returns by
-  // the difference between user assumption and baseline.
   const inflAdj  = -(inflation - BASELINE_INFLATION);
   const adjMean  = m => ({ ...m, mean: m.mean + inflAdj });
   const us       = adjMean(MKT.usEq);
@@ -40,7 +17,6 @@ function monteCarlo({
   const bnd      = adjMean(MKT.bonds);
   const cashReal = Math.max(-0.05, 0.015 - inflation);
 
-  // ── Log-normal parameters (μ, σ) ───────────────────────────
   const lp = m => ({
     lm: Math.log(1 + m.mean) - 0.5 * m.std ** 2,
     ls: m.std,
@@ -52,8 +28,8 @@ function monteCarlo({
   for (let sim = 0; sim < runs; sim++) {
     let p  = portfolio;
     let wd = grossAnnWd;
-    const pp = [p];        // portfolio values per year
-    const wp = [wd / 12];  // monthly withdrawal per year
+    const pp = [p];
+    const wp = [wd / 12];
 
     let depleted = false;
     let depY     = null;
@@ -62,11 +38,10 @@ function monteCarlo({
     for (let y = 0; y < years; y++) {
       if (depleted) { pp.push(0); wp.push(0); continue; }
 
-      // ── Correlated returns via shared market factor z0 ────
       const z0 = randn();
-      const zU = 0.70 * z0 + Math.sqrt(0.51)   * randn(); // ρ ≈ 0.70 with market
-      const zI = 0.65 * z0 + Math.sqrt(0.5775) * randn(); // ρ ≈ 0.65
-      const zB = 0.08 * z0 + Math.sqrt(0.9936) * randn(); // ρ ≈ 0.08 (near-independent)
+      const zU = 0.70 * z0 + Math.sqrt(0.51)   * randn();
+      const zI = 0.65 * z0 + Math.sqrt(0.5775) * randn();
+      const zB = 0.08 * z0 + Math.sqrt(0.9936) * randn();
 
       const ret = usEqPct   * Math.exp(UL.lm + UL.ls * zU)
                 + intlEqPct * Math.exp(IL.lm + IL.ls * zI)
@@ -75,7 +50,6 @@ function monteCarlo({
 
       p = Math.max(0, p * ret);
 
-      // ── Withdrawal amount for this year ──────────────────
       const left = Math.max(1, years - y);
       let tw;
 
@@ -84,7 +58,6 @@ function monteCarlo({
       else if (strategy === "one_n")      tw = p / left;
       else if (strategy === "vpw")        tw = p * Math.min(0.5, 1.35 / left);
       else if (strategy === "guyton_klinger") {
-        // Guardrail: adjust wd if withdrawal rate drifts too far
         const cr = wd / (p || 1);
         if      (cr > initRate * 1.20) wd *= 0.90;
         else if (cr < initRate * 0.80) wd *= 1.10;
@@ -93,7 +66,6 @@ function monteCarlo({
       else if (strategy === "endowment")  tw = 0.65 * wd + 0.35 * (p * wdRate);
       else tw = wd;
 
-      // ── Apply income offsets and extra expenses ───────────
       const inc = incomes.reduce((a, s) =>
         y >= s.start && (s.forever || y < s.start + s.dur) ? a + s.amt : a, 0);
       const ext = extras.reduce((a, e) =>
@@ -117,11 +89,30 @@ function monteCarlo({
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Aggregate simulation results into chart-ready statistics.
+ * Trim histogram bins so there are no more than `maxZeros`
+ * consecutive zero-count bins at the leading or trailing ends.
  *
- * @param {Array}  sims  - Output of monteCarlo()
- * @param {number} years - Retirement duration
- * @returns {object} Percentile series, histograms, and summary stats
+ * @param {Array}  hist     - Array of {label, count} objects
+ * @param {number} maxZeros - Max allowed leading/trailing zero bins (default 2)
+ * @returns {Array} Trimmed histogram slice
+ */
+function trimHistogram(hist, maxZeros = 2) {
+  const first = hist.findIndex(b => b.count > 0);
+  if (first === -1) return hist.slice(0, maxZeros); // all-zero edge case
+
+  // Walk backwards for last non-zero bin
+  let last = hist.length - 1;
+  while (last > 0 && hist[last].count === 0) last--;
+
+  const start = Math.max(0, first - maxZeros);
+  const end   = Math.min(hist.length, last + maxZeros + 1);
+  return hist.slice(start, end);
+}
+
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Aggregate simulation results into chart-ready statistics.
  */
 function analyze(sims, years) {
   const n            = sims.length;
@@ -145,7 +136,7 @@ function analyze(sims, years) {
     incSeries.push(mk(wv));
   }
 
-  // ── Convert to stacked fan-chart format ──────────────────
+  // ── Fan chart format ──────────────────────────────────────
   const toFan = s => s.map(d => ({
     year:    d.year,
     base:    d.p5,
@@ -158,31 +149,37 @@ function analyze(sims, years) {
     raw_p75: d.p75, raw_p95: d.p95,
   }));
 
-  // ── Final-portfolio histogram ─────────────────────────────
-  const binN      = 26;
-  const maxV      = finals.filter(Boolean).at(-1) || 1;
-  const bSz       = maxV / binN;
-  const zeroCount = finals.filter(f => f <= 0).length;
-  const histogram = Array.from({ length: binN }, (_, i) => ({
-    label: fmt$(i * bSz, true), count: 0,
-  }));
-  finals.filter(Boolean).forEach(v => {
-    histogram[Math.min(binN - 1, Math.floor(v / bSz))].count++;
-  });
+  // ── Final-portfolio histogram ($100K fixed bins) ─────────
+  const BIN_SIZE   = 100_000;                          // $100K resolution
+  const zeroCount  = finals.filter(f => f <= 0).length;
+  const nonZeroMax = finals.filter(f => f > 0).at(-1) || BIN_SIZE;
+  const portBinN   = Math.ceil(nonZeroMax / BIN_SIZE) + 1;
 
-  // ── Average-monthly-income histogram ─────────────────────
+  const histogramRaw = Array.from({ length: portBinN }, (_, i) => ({
+    label: fmt$(i * BIN_SIZE, true),
+    count: 0,
+  }));
+  // Depleted (value=0) runs are tracked via zeroCount; skip them here
+  finals.filter(f => f > 0).forEach(v => {
+    const idx = Math.min(portBinN - 1, Math.floor(v / BIN_SIZE));
+    histogramRaw[idx].count++;
+  });
+  const histogram = trimHistogram(histogramRaw, 2);
+
+  // ── Average-monthly-income histogram (dynamic bins) ──────
   const simAvgInc = sims.map(s => {
     const nz = s.wp.filter(v => v > 0);
     return nz.length ? nz.reduce((a, b) => a + b, 0) / nz.length : 0;
   }).sort((a, b) => a - b);
-  const incMax      = simAvgInc.at(-1) || 1;
-  const incBSz      = incMax / 20;
-  const incHistogram = Array.from({ length: 20 }, (_, i) => ({
+  const incMax  = simAvgInc.at(-1) || 1;
+  const incBSz  = incMax / 20;
+  const incHistRaw = Array.from({ length: 20 }, (_, i) => ({
     label: `$${Math.round(i * incBSz / 100) * 100}`, count: 0,
   }));
   simAvgInc.filter(Boolean).forEach(v => {
-    incHistogram[Math.min(19, Math.floor(v / incBSz))].count++;
+    incHistRaw[Math.min(19, Math.floor(v / incBSz))].count++;
   });
+  const incHistogram = trimHistogram(incHistRaw, 2);
 
   // ── Sampled-year income percentile bars ──────────────────
   const sampleYears = Array.from(
