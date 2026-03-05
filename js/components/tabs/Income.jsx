@@ -12,6 +12,9 @@ function TabIncome({ res }) {
     n, years,
   } = res;
 
+  // Show every Nth label if many bins remain after trimming
+  const incTickInterval = incHistogram.length > 14 ? 1 : 0;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
@@ -55,14 +58,24 @@ function TabIncome({ res }) {
           Average monthly gross income per simulation across the full {years}-year period
         </div>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={incHistogram} margin={{ top: 5, right: 16, bottom: 26, left: 8 }}>
+          <BarChart
+            data={incHistogram}
+            margin={{ top: 5, right: 16, bottom: 36, left: 8 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#0d2040" vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: C.dim, fontSize: 9, fontFamily: "JetBrains Mono, monospace" }} angle={-30} textAnchor="end" />
+            <XAxis
+              dataKey="label"
+              tick={{ fill: C.dim, fontSize: 9, fontFamily: "JetBrains Mono, monospace" }}
+              angle={-35}
+              textAnchor="end"
+              interval={incTickInterval}
+              height={44}
+            />
             <YAxis tick={{ fill: C.dim, fontSize: 10 }} />
             <Tooltip content={<BarTip />} />
             <Bar dataKey="count" name="Simulations" radius={[3, 3, 0, 0]}>
               {incHistogram.map((_, i) => (
-                <Cell key={i} fill={`hsl(${142 + i * 2.5},62%,${25 + i * 1.8}%)`} />
+                <Cell key={i} fill={`hsl(${142 + i * (60 / Math.max(incHistogram.length, 1))},62%,${25 + i * (30 / Math.max(incHistogram.length, 1))}%)`} />
               ))}
             </Bar>
           </BarChart>
