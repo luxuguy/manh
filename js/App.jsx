@@ -1,9 +1,5 @@
 // ─────────────────────────────────────────────────────────────
 // App.jsx — Root component: state, run logic, layout
-//
-// All application state lives here and is passed down as props.
-// To add a new feature: add state here, pass to Sidebar and/or
-// Results, implement logic in engine.js.
 // ─────────────────────────────────────────────────────────────
 
 function App() {
@@ -57,7 +53,6 @@ function App() {
   const handleRun = useCallback(() => {
     setRunning(true);
     setResults(null);
-    // Defer to next tick so the loading spinner renders first
     setTimeout(() => {
       const sims = monteCarlo({
         portfolio,
@@ -74,7 +69,7 @@ function App() {
     }, 40);
   }, [portfolio, alloc, years, strategy, grossAnnWd, wdRate, incomes, extras, runs, inflation]);
 
-  // ── Context bundle (passed to result tabs) ────────────────
+  // ── Context bundle ────────────────────────────────────────
   const ctx = {
     srColor, strat, inflation, portfolio, alloc, years, runs,
     netAnnWd, grossAnnWd, taxAmount, effectiveRate, taxCountry,
@@ -110,11 +105,11 @@ function App() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {[
-            ["🎲", "Monte Carlo",                   C.blue  ],
-            ["🌍", "4 Assets",                      C.purple],
+            ["🎲", "Monte Carlo",                    C.blue  ],
+            ["🌍", "4 Assets",                       C.purple],
             ["📈", `${(inflation * 100).toFixed(1)}% Inflation`, C.orange],
-            ["🧾", "40-Country Tax",                C.green ],
-            ["📅", "50-Year Data",                  C.teal  ],
+            ["🧾", "40-Country Tax",                 C.green ],
+            ["📅", "100-Year Data",                  C.teal  ],
           ].map(([icon, label, color]) => (
             <span key={label} style={{
               fontSize: 10, color, background: `${color}12`,
@@ -175,7 +170,6 @@ function App() {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
 
-// Fade out loading screen once Babel has finished transpiling
 document.getElementById("loading-screen").classList.add("fade-out");
 setTimeout(() => {
   const el = document.getElementById("loading-screen");
