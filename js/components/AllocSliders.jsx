@@ -1,8 +1,5 @@
 // ─────────────────────────────────────────────────────────────
 // components/AllocSliders.jsx — 4-asset allocation sliders
-//
-// When one slider moves, the other three auto-normalise so the
-// total always sums to 100%.
 // ─────────────────────────────────────────────────────────────
 
 function AllocSliders({ us, intl, bnd, csh, onChange }) {
@@ -42,7 +39,7 @@ function AllocSliders({ us, intl, bnd, csh, onChange }) {
             onChange={e => set(key, +e.target.value / 100)}
           />
           <div style={{ fontSize: 9, color: C.dim, marginTop: 2 }}>
-            μ = {(mkt.mean * 100).toFixed(1)}%  ·  σ = {(mkt.std * 100).toFixed(1)}%  ·  50-yr real
+            μ = {(mkt.mean * 100).toFixed(1)}%  ·  σ = {(mkt.std * 100).toFixed(1)}%  ·  100-yr real
           </div>
         </div>
       ))}

@@ -1,14 +1,5 @@
 // ─────────────────────────────────────────────────────────────
 // components/Sidebar.jsx — Left panel with all simulation inputs
-//
-// Sections (in order):
-//   1. Portfolio — starting value + asset allocation sliders
-//   2. Duration  — years slider
-//   3. Inflation — rate slider + context info box
-//   4. Withdrawal Strategy — strategy picker + amount/rate + tax
-//   5. Income Sources — add/remove recurring income
-//   6. Extra Withdrawals — add/remove expense events
-//   7. Simulation — iteration count + Run button
 // ─────────────────────────────────────────────────────────────
 
 function Sidebar({
@@ -74,7 +65,7 @@ function Sidebar({
         {/* Market data info box */}
         <div style={{ background: "#060f1e", border: `1px solid ${C.faint}`, borderRadius: 8, padding: "10px 12px", marginBottom: 13 }}>
           <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            📊 50-Year Real Returns (1975–2024)
+            📊 100-Year Real Returns (1925–2024)
           </div>
           {Object.entries(MKT).map(([k, m]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 10 }}>
@@ -85,7 +76,7 @@ function Sidebar({
             </div>
           ))}
           <div style={{ fontSize: 9, color: "#334155", marginTop: 5, lineHeight: 1.5 }}>
-            Real returns after CPI inflation. Log-normal with cross-asset correlation.
+            Real returns after CPI inflation. Includes Great Depression, WWII, stagflation &amp; modern eras. Log-normal with cross-asset correlation.
           </div>
         </div>
 
@@ -121,7 +112,7 @@ function Sidebar({
         </div>
         <div style={{ background: "#0a0c0e", border: `1px solid ${C.faint}`, borderRadius: 8, padding: "9px 11px", fontSize: 10 }}>
           {[
-            ["Baseline (historical avg)", "3.0%",                                    C.muted ],
+            ["Baseline (100-yr avg)", "3.0%",                                    C.muted ],
             ["Your assumption",           `${(inflation * 100).toFixed(1)}%`,        C.orange],
             ["Real return adjustment",
               inflation === BASELINE_INFLATION

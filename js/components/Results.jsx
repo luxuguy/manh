@@ -1,7 +1,5 @@
 // ─────────────────────────────────────────────────────────────
 // components/Results.jsx — Results panel with tab bar
-//
-// Renders empty state, loading spinner, or the 4-tab result view.
 // ─────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -17,13 +15,14 @@ function ResultsEmpty() {
       <div style={{ fontSize: 56, opacity: 0.3 }}>◈</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: C.text }}>Configure & Run Your Simulation</div>
       <div style={{ fontSize: 13, color: C.dim, maxWidth: 480, textAlign: "center", lineHeight: 1.9 }}>
-        Set up your 4-asset portfolio, enter your net after-tax income need, choose inflation assumptions and a withdrawal strategy, then run Monte Carlo simulations powered by 50 years of real market data (1975–2024).
+        Set up your 4-asset portfolio, enter your net after-tax income need, choose inflation assumptions and a withdrawal strategy, then run Monte Carlo simulations powered by 100 years of real market data (1925–2024) — including the Great Depression, WWII, stagflation, and modern bull markets.
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
         <Tag color={C.blue}>🎲 Monte Carlo up to 10K runs</Tag>
         <Tag color={C.purple}>🌍 4 Asset Classes</Tag>
         <Tag color={C.orange}>📈 Inflation Adjusted</Tag>
         <Tag color={C.green}>🧾 40-Country Tax Gross-Up</Tag>
+        <Tag color={C.teal}>📅 100-Year Historical Data</Tag>
       </div>
     </div>
   );
