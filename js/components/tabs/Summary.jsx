@@ -1,8 +1,5 @@
 // ─────────────────────────────────────────────────────────────
 // components/tabs/Summary.jsx — Lifetime summary tab
-//
-// Shows: arc gauge + verdict, config recap table, outcome
-//        probability cards, depletion timeline, recommendations
 // ─────────────────────────────────────────────────────────────
 
 function TabSummary({ res, ctx }) {
@@ -71,7 +68,7 @@ function TabSummary({ res, ctx }) {
               : [["Withdrawal Rate", `${(wdRate * 100).toFixed(1)}%`]]
             ),
             ["Monte Carlo Runs",      runs.toLocaleString()],
-            ["Data Calibration",      "1975–2024 (50-yr real returns)"],
+            ["Data Calibration",      "1925–2024 (100-yr real returns)"],
           ].map(([k, v]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "9px 11px", background: C.input, borderRadius: 7 }}>
               <span style={{ fontSize: 11, color: C.dim, flexShrink: 0 }}>{k}</span>
