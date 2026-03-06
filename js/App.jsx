@@ -35,8 +35,8 @@ function App() {
   const [newInc,  setNewInc]  = useState({ name: "", amt: 24000, start: 0,  dur: 10, forever: true });
   const [newExt,  setNewExt]  = useState({ name: "", amt: 10000, start: 5, dur: 1  });
 
-  // ── Simulation ────────────────────────────────────────────
-  const [runs,      setRuns]      = useState(1000);
+  // ── Simulation — default 10K runs (regime-switching model) ─
+  const [runs,      setRuns]      = useState(10000);
   const [results,   setResults]   = useState(null);
   const [running,   setRunning]   = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
@@ -69,7 +69,7 @@ function App() {
     }, 40);
   }, [portfolio, alloc, years, strategy, grossAnnWd, wdRate, incomes, extras, runs, inflation]);
 
-  // ── Context bundle ────────────────────────────────────────
+  // ── Context bundle (passed to result tabs) ────────────────
   const ctx = {
     srColor, strat, inflation, portfolio, alloc, years, runs,
     netAnnWd, grossAnnWd, taxAmount, effectiveRate, taxCountry,
@@ -105,11 +105,12 @@ function App() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {[
-            ["🎲", "Monte Carlo",                    C.blue  ],
-            ["🌍", "4 Assets",                       C.purple],
+            ["🎲", "Monte Carlo",                   C.blue  ],
+            ["🌍", "4 Assets",                      C.purple],
             ["📈", `${(inflation * 100).toFixed(1)}% Inflation`, C.orange],
-            ["🧾", "40-Country Tax",                 C.green ],
-            ["📅", "100-Year Data",                  C.teal  ],
+            ["🧾", "40-Country Tax",                C.green ],
+            ["📅", "100-Year Data",                 C.teal  ],
+            ["🔄", "Regime Cycles",                 C.accent],
           ].map(([icon, label, color]) => (
             <span key={label} style={{
               fontSize: 10, color, background: `${color}12`,
@@ -130,7 +131,7 @@ function App() {
         </div>
       </div>
 
-      {/* Body: sidebar + main content */}
+      {/* Body */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar
           portfolioStr={portfolioStr}   setPortfolioStr={setPortfolioStr}
