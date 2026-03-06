@@ -1,55 +1,160 @@
 // ─────────────────────────────────────────────────────────────
-// core/engine.js — Monte Carlo simulation + statistical analysis
+// core/engine.js — Regime-switching Monte Carlo retirement engine
+//
+// Algorithm:
+//   1. Classify 100 years of history into 4 market regimes
+//      (Bull, Bear, Recovery, Sideways)
+//   2. Within each regime, use block bootstrapping — consecutive
+//      historical years from that regime are sampled as a block,
+//      preserving within-cycle autocorrelation
+//   3. Use a Markov chain to transition between regimes, capturing
+//      realistic market cycle persistence and mean-reversion
+//
+// This replaces the i.i.d. log-normal model with a regime-aware
+// simulation that better reflects real market dynamics.
 // ─────────────────────────────────────────────────────────────
 
+// ── Regime Helpers ────────────────────────────────────────────
+
 /**
- * Run Monte Carlo retirement simulations.
+ * Sample next regime from Markov transition matrix.
+ * @param {number} regime - Current regime (0–3)
+ * @returns {number} Next regime
+ */
+function markovTransition(regime) {
+  const row = REGIME_TRANSITIONS[regime];
+  const r = Math.random();
+  let c = 0;
+  for (let i = 0; i < row.length; i++) {
+    c += row[i];
+    if (r < c) return i;
+  }
+  return row.length - 1;
+}
+
+/**
+ * Sample starting regime from empirical historical frequencies.
+ * @returns {number} Initial regime (0–3)
+ */
+function sampleInitialRegime() {
+  const r = Math.random();
+  let c = 0;
+  for (let i = 0; i < REGIME_INIT.length; i++) {
+    c += REGIME_INIT[i];
+    if (r < c) return i;
+  }
+  return 0;
+}
+
+/**
+ * Draw a random block of consecutive historical returns for a given regime.
+ * Falls back to a single-year average if no blocks exist (shouldn't happen).
+ * @param {number} regime - Target regime (0–3)
+ * @returns {Array} Array of { us, intl, bnd } annual return objects
+ */
+function sampleRegimeBlock(regime) {
+  const pool = REGIME_BLOCKS[regime];
+
+  if (!pool || pool.length === 0) {
+    // Fallback: compute average returns for this regime from raw history
+    const idx = HIST_REGIMES.reduce((a, r, i) => (r === regime ? [...a, i] : a), []);
+    const avg = arr => idx.length ? idx.reduce((a, i) => a + arr[i], 0) / idx.length : 0;
+    return [{ us: avg(HIST.usEq), intl: avg(HIST.intlEq), bnd: avg(HIST.bonds) }];
+  }
+
+  // Pick a uniformly random block from this regime's pool
+  const block = pool[Math.floor(Math.random() * pool.length)];
+
+  return block.us.map((_, k) => ({
+    us:   block.us[k],
+    intl: block.intl[k],
+    bnd:  block.bnd[k],
+  }));
+}
+
+// ── Monte Carlo Simulation ────────────────────────────────────
+
+/**
+ * Run regime-switching Monte Carlo retirement simulations.
+ *
+ * Each simulation year's return is drawn via:
+ *   1. Start in a regime (sampled from empirical distribution)
+ *   2. Sample a consecutive historical block from that regime
+ *   3. Work through the block year-by-year
+ *   4. When block exhausted → Markov-transition to next regime
+ *   5. Repeat until retirement duration covered
+ *
+ * Inflation adjustment: historical data embeds ~3% CPI baseline.
+ * If user selects a different rate, each asset return is shifted by
+ * inflAdj = -(userInflation - 0.03), so higher inflation lowers real returns.
+ *
+ * @param {object} params
+ * @param {number} params.portfolio   - Starting portfolio value ($)
+ * @param {number} params.usEqPct     - US equity allocation (0–1)
+ * @param {number} params.intlEqPct   - Intl equity allocation (0–1)
+ * @param {number} params.bndPct      - Bond allocation (0–1)
+ * @param {number} params.cshPct      - Cash allocation (0–1)
+ * @param {number} params.years       - Retirement duration
+ * @param {string} params.strategy    - Withdrawal strategy ID
+ * @param {number} params.grossAnnWd  - Annual gross withdrawal ($)
+ * @param {number} params.wdRate      - Withdrawal rate for % strategies
+ * @param {Array}  params.incomes     - Income source objects
+ * @param {Array}  params.extras      - Extra expense objects
+ * @param {number} params.runs        - Number of simulation runs
+ * @param {number} params.inflation   - User inflation assumption (0–1)
+ * @returns {Array} Simulation result objects
  */
 function monteCarlo({
   portfolio, usEqPct, intlEqPct, bndPct, cshPct,
   years, strategy, grossAnnWd, wdRate,
   incomes, extras, runs, inflation,
 }) {
+  // ── Inflation adjustment ──────────────────────────────────
+  // Shift every historical return by the deviation from the 3% baseline
+  // embedded in the data.  Higher user inflation → lower real returns.
   const inflAdj  = -(inflation - BASELINE_INFLATION);
-  const adjMean  = m => ({ ...m, mean: m.mean + inflAdj });
-  const us       = adjMean(MKT.usEq);
-  const intl     = adjMean(MKT.intlEq);
-  const bnd      = adjMean(MKT.bonds);
   const cashReal = Math.max(-0.05, 0.015 - inflation);
-
-  const lp = m => ({
-    lm: Math.log(1 + m.mean) - 0.5 * m.std ** 2,
-    ls: m.std,
-  });
-  const UL = lp(us), IL = lp(intl), BL = lp(bnd);
 
   const results = [];
 
   for (let sim = 0; sim < runs; sim++) {
     let p  = portfolio;
     let wd = grossAnnWd;
-    const pp = [p];
-    const wp = [wd / 12];
+    const pp = [p];        // portfolio values, one per year-end
+    const wp = [wd / 12];  // monthly withdrawal, one per year
 
     let depleted = false;
     let depY     = null;
     const initRate = portfolio > 0 ? grossAnnWd / portfolio : 0.04;
 
+    // ── Regime-switching state ─────────────────────────────
+    let regime   = sampleInitialRegime();
+    let block    = sampleRegimeBlock(regime);   // current return block
+    let blockPos = 0;
+
     for (let y = 0; y < years; y++) {
       if (depleted) { pp.push(0); wp.push(0); continue; }
 
-      const z0 = randn();
-      const zU = 0.70 * z0 + Math.sqrt(0.51)   * randn();
-      const zI = 0.65 * z0 + Math.sqrt(0.5775) * randn();
-      const zB = 0.08 * z0 + Math.sqrt(0.9936) * randn();
+      // Advance block; when exhausted → Markov-transition to new regime
+      if (blockPos >= block.length) {
+        regime   = markovTransition(regime);
+        block    = sampleRegimeBlock(regime);
+        blockPos = 0;
+      }
 
-      const ret = usEqPct   * Math.exp(UL.lm + UL.ls * zU)
-                + intlEqPct * Math.exp(IL.lm + IL.ls * zI)
-                + bndPct    * Math.exp(BL.lm + BL.ls * zB)
+      const yr = block[blockPos++];
+
+      // ── Portfolio return for this year ─────────────────
+      // Blended weighted return factor, with inflation shift applied
+      // to each risky asset.  Cash uses its own real-return floor.
+      const ret = usEqPct   * (1 + yr.us   + inflAdj)
+                + intlEqPct * (1 + yr.intl  + inflAdj)
+                + bndPct    * (1 + yr.bnd   + inflAdj)
                 + cshPct    * (1 + cashReal);
 
       p = Math.max(0, p * ret);
 
+      // ── Withdrawal amount for this year ───────────────
       const left = Math.max(1, years - y);
       let tw;
 
@@ -66,8 +171,13 @@ function monteCarlo({
       else if (strategy === "endowment")  tw = 0.65 * wd + 0.35 * (p * wdRate);
       else tw = wd;
 
+      // ── Income sources (entered in real/today's dollars) ──
+      // All income amounts are treated as real (inflation-protected)
+      // values — equivalent to COLA-adjusted Social Security or pension.
       const inc = incomes.reduce((a, s) =>
         y >= s.start && (s.forever || y < s.start + s.dur) ? a + s.amt : a, 0);
+
+      // Extra withdrawals (real dollars)
       const ext = extras.reduce((a, e) =>
         y >= e.start && y < e.start + e.dur ? a + e.amt : a, 0);
 
@@ -89,30 +199,12 @@ function monteCarlo({
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Trim histogram bins so there are no more than `maxZeros`
- * consecutive zero-count bins at the leading or trailing ends.
- *
- * @param {Array}  hist     - Array of {label, count} objects
- * @param {number} maxZeros - Max allowed leading/trailing zero bins (default 2)
- * @returns {Array} Trimmed histogram slice
- */
-function trimHistogram(hist, maxZeros = 2) {
-  const first = hist.findIndex(b => b.count > 0);
-  if (first === -1) return hist.slice(0, maxZeros); // all-zero edge case
-
-  // Walk backwards for last non-zero bin
-  let last = hist.length - 1;
-  while (last > 0 && hist[last].count === 0) last--;
-
-  const start = Math.max(0, first - maxZeros);
-  const end   = Math.min(hist.length, last + maxZeros + 1);
-  return hist.slice(start, end);
-}
-
-// ─────────────────────────────────────────────────────────────
-
-/**
  * Aggregate simulation results into chart-ready statistics.
+ * Output format unchanged — all consumers remain compatible.
+ *
+ * @param {Array}  sims  - Output of monteCarlo()
+ * @param {number} years - Retirement duration
+ * @returns {object} Percentile series, histograms, and summary stats
  */
 function analyze(sims, years) {
   const n            = sims.length;
@@ -136,7 +228,7 @@ function analyze(sims, years) {
     incSeries.push(mk(wv));
   }
 
-  // ── Fan chart format ──────────────────────────────────────
+  // ── Convert to stacked fan-chart format ──────────────────
   const toFan = s => s.map(d => ({
     year:    d.year,
     base:    d.p5,
@@ -149,37 +241,31 @@ function analyze(sims, years) {
     raw_p75: d.p75, raw_p95: d.p95,
   }));
 
-  // ── Final-portfolio histogram ($100K fixed bins) ─────────
-  const BIN_SIZE   = 100_000;                          // $100K resolution
-  const zeroCount  = finals.filter(f => f <= 0).length;
-  const nonZeroMax = finals.filter(f => f > 0).at(-1) || BIN_SIZE;
-  const portBinN   = Math.ceil(nonZeroMax / BIN_SIZE) + 1;
-
-  const histogramRaw = Array.from({ length: portBinN }, (_, i) => ({
-    label: fmt$(i * BIN_SIZE, true),
-    count: 0,
+  // ── Final-portfolio histogram ─────────────────────────────
+  const binN      = 26;
+  const maxV      = finals.filter(Boolean).at(-1) || 1;
+  const bSz       = maxV / binN;
+  const zeroCount = finals.filter(f => f <= 0).length;
+  const histogram = Array.from({ length: binN }, (_, i) => ({
+    label: fmt$(i * bSz, true), count: 0,
   }));
-  // Depleted (value=0) runs are tracked via zeroCount; skip them here
-  finals.filter(f => f > 0).forEach(v => {
-    const idx = Math.min(portBinN - 1, Math.floor(v / BIN_SIZE));
-    histogramRaw[idx].count++;
+  finals.filter(Boolean).forEach(v => {
+    histogram[Math.min(binN - 1, Math.floor(v / bSz))].count++;
   });
-  const histogram = trimHistogram(histogramRaw, 2);
 
-  // ── Average-monthly-income histogram (dynamic bins) ──────
+  // ── Average-monthly-income histogram ─────────────────────
   const simAvgInc = sims.map(s => {
     const nz = s.wp.filter(v => v > 0);
     return nz.length ? nz.reduce((a, b) => a + b, 0) / nz.length : 0;
   }).sort((a, b) => a - b);
-  const incMax  = simAvgInc.at(-1) || 1;
-  const incBSz  = incMax / 20;
-  const incHistRaw = Array.from({ length: 20 }, (_, i) => ({
+  const incMax      = simAvgInc.at(-1) || 1;
+  const incBSz      = incMax / 20;
+  const incHistogram = Array.from({ length: 20 }, (_, i) => ({
     label: `$${Math.round(i * incBSz / 100) * 100}`, count: 0,
   }));
   simAvgInc.filter(Boolean).forEach(v => {
-    incHistRaw[Math.min(19, Math.floor(v / incBSz))].count++;
+    incHistogram[Math.min(19, Math.floor(v / incBSz))].count++;
   });
-  const incHistogram = trimHistogram(incHistRaw, 2);
 
   // ── Sampled-year income percentile bars ──────────────────
   const sampleYears = Array.from(
