@@ -3,24 +3,18 @@
 // ─────────────────────────────────────────────────────────────
 
 function Sidebar({
-  // Portfolio
   portfolioStr, setPortfolioStr, portfolio, alloc, setAlloc,
-  // Duration
   years, setYears,
-  // Inflation
   inflation, setInflation,
-  // Withdrawal
   strategy, setStrategy,
   netAnnWdStr, setNetAnnWdStr, netAnnWd,
   taxCountryId, setTaxCountryId,
   grossAnnWd, effectiveRate,
   wdRate, setWdRate,
-  // Income / Extras
   incomes, setIncomes,
   extras,  setExtras,
   newInc,  setNewInc,
   newExt,  setNewExt,
-  // Simulation
   runs, setRuns,
   onRun, running,
 }) {
@@ -76,7 +70,7 @@ function Sidebar({
             </div>
           ))}
           <div style={{ fontSize: 9, color: "#334155", marginTop: 5, lineHeight: 1.5 }}>
-            Real returns after CPI inflation. Includes Great Depression, WWII, stagflation &amp; modern eras. Log-normal with cross-asset correlation.
+            Real returns after CPI inflation. Regime-switching block bootstrap model.
           </div>
         </div>
 
@@ -112,7 +106,7 @@ function Sidebar({
         </div>
         <div style={{ background: "#0a0c0e", border: `1px solid ${C.faint}`, borderRadius: 8, padding: "9px 11px", fontSize: 10 }}>
           {[
-            ["Baseline (100-yr avg)", "3.0%",                                    C.muted ],
+            ["Baseline (historical avg)", "3.0%",                                    C.muted ],
             ["Your assumption",           `${(inflation * 100).toFixed(1)}%`,        C.orange],
             ["Real return adjustment",
               inflation === BASELINE_INFLATION
@@ -150,7 +144,6 @@ function Sidebar({
           </SelectField>
         </div>
 
-        {/* Strategy description */}
         <div style={{
           background: "#06101e", border: "1px solid #1a3456",
           borderLeft: `3px solid ${C.accent}`, borderRadius: "0 8px 8px 0",
@@ -160,7 +153,6 @@ function Sidebar({
           {strat.desc}
         </div>
 
-        {/* Net withdrawal + tax (for amount-based strategies) */}
         {strat.usesAmt && (
           <div style={{ marginBottom: 10 }}>
             <div style={{ marginBottom: 5 }}>
@@ -192,7 +184,6 @@ function Sidebar({
           </div>
         )}
 
-        {/* Withdrawal rate (for rate-based strategies) */}
         {strat.usesRate && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
@@ -209,6 +200,9 @@ function Sidebar({
       {/* ── 5. Income Sources ────────────────────────────────── */}
       <div>
         <SecHeader icon="💵">Income Sources</SecHeader>
+        <div style={{ fontSize: 9, color: C.dim, marginBottom: 8, lineHeight: 1.5 }}>
+          Amounts in today's dollars (real). Treated as COLA-adjusted (inflation-protected) in simulation.
+        </div>
         {incomes.map((inc, i) => (
           <div key={i} style={{ background: C.input, borderRadius: 7, padding: "8px 10px", marginBottom: 6, fontSize: 11, border: `1px solid ${C.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -302,10 +296,30 @@ function Sidebar({
             {runs.toLocaleString()}
           </span>
         </div>
-        <SliderInput min={100} max={10000} step={100} value={runs} onChange={e => setRuns(+e.target.value)} />
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: C.dim, marginTop: 2, marginBottom: 14 }}>
-          <span>100</span><span>10,000</span>
+        <SliderInput min={500} max={100000} step={500} value={runs} onChange={e => setRuns(+e.target.value)} />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: C.dim, marginTop: 2, marginBottom: 8 }}>
+          <span>500</span><span>100,000</span>
         </div>
+
+        {/* Speed / accuracy guide */}
+        <div style={{ background: "#060f1e", border: `1px solid ${C.faint}`, borderRadius: 7, padding: "8px 10px", marginBottom: 12, fontSize: 9, color: C.dim, lineHeight: 1.6 }}>
+          {[
+            ["500–2K",   "Fast (&lt;1s)",  "exploratory"],
+            ["5K–10K",   "Balanced (~2s)", "recommended"],
+            ["25K–50K",  "Accurate (~8s)", "final analysis"],
+            ["100K",     "Slow (~20s)",    "publication grade"],
+          ].map(([r, t, d]) => (
+            <div key={r} style={{ display: "flex", gap: 6, marginBottom: 1 }}>
+              <span style={{ color: C.accent, minWidth: 60, fontFamily: "JetBrains Mono, monospace" }}>{r}</span>
+              <span dangerouslySetInnerHTML={{ __html: t }} style={{ color: runs >= parseInt(r) ? C.text : C.dim, minWidth: 80 }} />
+              <span style={{ color: C.dim }}>{d}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 4, color: "#334155" }}>
+            Regime-switching block bootstrap model. Higher runs reduce variance in success rate estimate.
+          </div>
+        </div>
+
         <Btn onClick={onRun} disabled={running}>
           {running
             ? `⏳ Simulating ${runs.toLocaleString()} scenarios…`
