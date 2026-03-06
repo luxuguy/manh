@@ -227,44 +227,7 @@ function MarkovDiagram() {
 // ── Block bootstrap explainer ─────────────────────────────────
 function BlockBootstrapPanel() {
   return (
-    <div style={{
-      display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
-    }}>
-      {[
-        {
-          icon: "✅",
-          label: "New approach: block bootstrap",
-          color: C.green,
-          points: [
-            "Years are drawn in consecutive historical blocks",
-            "Preserves multi-year autocorrelation",
-            "A bear market can last 2–4 years as in history",
-            "Correctly captures crash-then-recovery sequences",
-            "Asset correlation within a cycle is preserved",
-          ],
-        },
-      ].map(({ icon, label, color, points }) => (
-        <div key={label} style={{
-          background: C.input, border: `1px solid ${color}28`,
-          borderTop: `2px solid ${color}`,
-          borderRadius: 10, padding: "12px 14px",
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 10 }}>
-            {icon} {label}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {points.map(p => (
-              <div key={p} style={{ display: "flex", gap: 7, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-                <span style={{ color, flexShrink: 0, marginTop: 1 }}>
-                  {color === C.red ? "✕" : "✓"}
-                </span>
-                {p}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+    
   );
 }
 
