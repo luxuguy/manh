@@ -125,7 +125,16 @@ function monteCarlo({
     let p  = portfolio;
     let wd = grossAnnWd;
     const pp = [p];        // portfolio values, one per year-end
-    const wp = [wd / 12];  // monthly withdrawal, one per year
+
+    // ── Year-0 income: compute from each strategy's own formula ──
+    // Do NOT default all strategies to grossAnnWd/12 — pct/one_n/vpw
+    // have different starting incomes based on portfolio and years.
+    let initMonthlyIncome;
+    if      (strategy === "pct")   initMonthlyIncome = portfolio * wdRate / 12;
+    else if (strategy === "one_n") initMonthlyIncome = portfolio / Math.max(1, years) / 12;
+    else if (strategy === "vpw")   initMonthlyIncome = portfolio * Math.min(0.5, 1.35 / Math.max(1, years)) / 12;
+    else                           initMonthlyIncome = grossAnnWd / 12;  // constant, guyton_klinger, endowment
+    const wp = [initMonthlyIncome];
 
     let depleted = false;
     let depY     = null;
@@ -185,13 +194,17 @@ function monteCarlo({
       const ext = extras.reduce((a, e) =>
         y >= e.start && y < e.start + e.dur ? a + e.amt : a, 0);
 
+      const pBeforeWd = p;  // snapshot before withdrawal for accurate income tracking
       p = Math.max(0, p - Math.max(0, tw + ext - inc));
 
       if (p <= 0 && !depleted) { depleted = true; depY = y + 1; }
 
       wd = tw;
       pp.push(p);
-      wp.push(Math.max(0, tw / 12));
+      // Actual income = what was truly drawn from portfolio + external income - extra costs.
+      // In normal years this equals tw; in partial-depletion years it's capped at what remained.
+      const actualDraw = pBeforeWd - p;
+      wp.push(Math.max(0, actualDraw + inc - ext) / 12);
     }
 
     results.push({ pp, wp, depleted, depY, final: pp.at(-1) });
