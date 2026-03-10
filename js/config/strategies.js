@@ -54,7 +54,7 @@ const STRATEGIES = [
         label: "Guyton-Klinger Guardrails",
         usesAmt: true,
         usesRate: false,
-        desc: "Starts with a fixed withdrawal but applies two annual guardrail rules: (1) if your withdrawal rate rises above 120% of initial (portfolio fell badly), cut spending 10%; (2) if it falls below 80% (portfolio grew a lot), boost spending 10%. A self-regulating system.",
+        desc: "Starts with a fixed withdrawal but applies two annual guardrail rules: (1) if your withdrawal rate rises above the upper guardrail (portfolio fell badly), cut spending by the configured percentage; (2) if it falls below the lower guardrail (portfolio grew a lot), boost spending by the configured percentage. Adjust all four guardrail parameters below the strategy selector.",
       },
       {
         id: "endowment",
