@@ -108,6 +108,10 @@ function monteCarlo({
   portfolio, usEqPct, intlEqPct, bndPct, cshPct,
   years, strategy, grossAnnWd, wdRate,
   incomes, extras, runs, inflation,
+  gkUpperGuardrail = 1.20,
+  gkLowerGuardrail = 0.80,
+  gkCutPct         = 0.10,
+  gkBoostPct       = 0.10,
 }) {
   // ── Inflation adjustment ──────────────────────────────────
   // Shift every historical return by the deviation from the 3% baseline
@@ -164,8 +168,8 @@ function monteCarlo({
       else if (strategy === "vpw")        tw = p * Math.min(0.5, 1.35 / left);
       else if (strategy === "guyton_klinger") {
         const cr = wd / (p || 1);
-        if      (cr > initRate * 1.20) wd *= 0.90;
-        else if (cr < initRate * 0.80) wd *= 1.10;
+        if      (cr > initRate * gkUpperGuardrail) wd *= (1 - gkCutPct);
+        else if (cr < initRate * gkLowerGuardrail) wd *= (1 + gkBoostPct);
         tw = wd;
       }
       else if (strategy === "endowment")  tw = 0.65 * wd + 0.35 * (p * wdRate);
