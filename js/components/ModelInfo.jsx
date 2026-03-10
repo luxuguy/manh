@@ -226,9 +226,7 @@ function MarkovDiagram() {
 
 // ── Block bootstrap explainer ─────────────────────────────────
 function BlockBootstrapPanel() {
-  return (
-    
-  );
+  return null;
 }
 
 // ── Sequence-of-returns risk callout ──────────────────────────
