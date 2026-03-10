@@ -11,6 +11,10 @@ function Sidebar({
   taxCountryId, setTaxCountryId,
   grossAnnWd, effectiveRate,
   wdRate, setWdRate,
+  gkUpper, setGkUpper,
+  gkLower, setGkLower,
+  gkCutPct, setGkCutPct,
+  gkBoostPct, setGkBoostPct,
   incomes, setIncomes,
   extras,  setExtras,
   newInc,  setNewInc,
@@ -193,6 +197,121 @@ function Sidebar({
               </span>
             </div>
             <SliderInput min={1} max={12} step={0.1} value={wdRate * 100} onChange={e => setWdRate(+e.target.value / 100)} />
+          </div>
+        )}
+
+        {strategy === "guyton_klinger" && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Section header */}
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: C.dim,
+              textTransform: "uppercase", letterSpacing: "0.08em",
+              borderTop: `1px solid ${C.faint}`, paddingTop: 10,
+            }}>
+              ⚙️ Guardrail Parameters
+            </div>
+
+            {/* Upper guardrail */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                <Label sub="Cut spending when rate exceeds this threshold">Upper Guardrail</Label>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.red, fontFamily: "JetBrains Mono, monospace" }}>
+                  {(gkUpper * 100).toFixed(0)}%
+                </span>
+              </div>
+              <SliderInput
+                color={C.red}
+                min={105} max={150} step={1}
+                value={Math.round(gkUpper * 100)}
+                onChange={e => setGkUpper(+e.target.value / 100)}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: C.dim, marginTop: 2 }}>
+                <span>105%</span><span style={{ color: C.dim }}>of initial rate</span><span>150%</span>
+              </div>
+            </div>
+
+            {/* Lower guardrail */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                <Label sub="Boost spending when rate falls below this threshold">Lower Guardrail</Label>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.green, fontFamily: "JetBrains Mono, monospace" }}>
+                  {(gkLower * 100).toFixed(0)}%
+                </span>
+              </div>
+              <SliderInput
+                color={C.green}
+                min={50} max={95} step={1}
+                value={Math.round(gkLower * 100)}
+                onChange={e => setGkLower(+e.target.value / 100)}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: C.dim, marginTop: 2 }}>
+                <span>50%</span><span style={{ color: C.dim }}>of initial rate</span><span>95%</span>
+              </div>
+            </div>
+
+            {/* Cut % */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                <Label sub="How much to reduce spending when upper is breached">Spending Cut</Label>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.orange, fontFamily: "JetBrains Mono, monospace" }}>
+                  −{(gkCutPct * 100).toFixed(0)}%
+                </span>
+              </div>
+              <SliderInput
+                color={C.orange}
+                min={2} max={25} step={1}
+                value={Math.round(gkCutPct * 100)}
+                onChange={e => setGkCutPct(+e.target.value / 100)}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: C.dim, marginTop: 2 }}>
+                <span>2%</span><span>25%</span>
+              </div>
+            </div>
+
+            {/* Boost % */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                <Label sub="How much to increase spending when lower is breached">Spending Boost</Label>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.teal, fontFamily: "JetBrains Mono, monospace" }}>
+                  +{(gkBoostPct * 100).toFixed(0)}%
+                </span>
+              </div>
+              <SliderInput
+                color={C.teal}
+                min={2} max={25} step={1}
+                value={Math.round(gkBoostPct * 100)}
+                onChange={e => setGkBoostPct(+e.target.value / 100)}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: C.dim, marginTop: 2 }}>
+                <span>2%</span><span>25%</span>
+              </div>
+            </div>
+
+            {/* Live rule summary */}
+            <div style={{
+              background: C.input, border: `1px solid ${C.border}`,
+              borderRadius: 8, padding: "10px 12px", fontSize: 10, lineHeight: 1.85,
+            }}>
+              <div style={{ color: C.muted, fontWeight: 700, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Active Rules
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div>
+                  <span style={{ color: C.red }}>▲ Upper:</span>
+                  <span style={{ color: C.dim }}> If rate &gt; </span>
+                  <span style={{ color: C.text, fontFamily: "JetBrains Mono, monospace" }}>{(gkUpper * 100).toFixed(0)}%</span>
+                  <span style={{ color: C.dim }}> of initial → cut </span>
+                  <span style={{ color: C.red, fontFamily: "JetBrains Mono, monospace" }}>−{(gkCutPct * 100).toFixed(0)}%</span>
+                </div>
+                <div>
+                  <span style={{ color: C.green }}>▼ Lower:</span>
+                  <span style={{ color: C.dim }}> If rate &lt; </span>
+                  <span style={{ color: C.text, fontFamily: "JetBrains Mono, monospace" }}>{(gkLower * 100).toFixed(0)}%</span>
+                  <span style={{ color: C.dim }}> of initial → boost </span>
+                  <span style={{ color: C.green, fontFamily: "JetBrains Mono, monospace" }}>+{(gkBoostPct * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
