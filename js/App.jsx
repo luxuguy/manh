@@ -21,6 +21,12 @@ function App() {
   const [taxCountryId, setTaxCountryId] = useState("US");
   const [wdRate,       setWdRate]       = useState(0.04);
 
+  // ── Guyton-Klinger guardrail settings ─────────────────────
+  const [gkUpper,    setGkUpper]    = useState(1.20);   // upper guardrail multiplier
+  const [gkLower,    setGkLower]    = useState(0.80);   // lower guardrail multiplier
+  const [gkCutPct,   setGkCutPct]   = useState(0.10);   // cut fraction when upper breached
+  const [gkBoostPct, setGkBoostPct] = useState(0.10);   // boost fraction when lower breached
+
   const netAnnWd   = useMemo(() => Math.max(0, parseFloat(netAnnWdStr.replace(/,/g, "")) || 0), [netAnnWdStr]);
   const taxCountry = useMemo(() => TAX_COUNTRIES.find(c => c.id === taxCountryId) || TAX_COUNTRIES[0], [taxCountryId]);
   const grossAnnWd = useMemo(() => grossFromNet(netAnnWd, taxCountry.brackets), [netAnnWd, taxCountry]);
@@ -62,12 +68,16 @@ function App() {
         cshPct:    alloc.csh,
         years, strategy, grossAnnWd, wdRate,
         incomes, extras, runs, inflation,
+        gkUpperGuardrail: gkUpper,
+        gkLowerGuardrail: gkLower,
+        gkCutPct,
+        gkBoostPct,
       });
       setResults(analyze(sims, years));
       setRunning(false);
       setActiveTab("overview");
     }, 40);
-  }, [portfolio, alloc, years, strategy, grossAnnWd, wdRate, incomes, extras, runs, inflation]);
+  }, [portfolio, alloc, years, strategy, grossAnnWd, wdRate, incomes, extras, runs, inflation, gkUpper, gkLower, gkCutPct, gkBoostPct]);
 
   // ── Context bundle ────────────────────────────────────────
   const ctx = {
@@ -144,6 +154,10 @@ function App() {
           taxCountryId={taxCountryId}   setTaxCountryId={setTaxCountryId}
           grossAnnWd={grossAnnWd}       effectiveRate={effectiveRate}
           wdRate={wdRate}               setWdRate={setWdRate}
+          gkUpper={gkUpper}             setGkUpper={setGkUpper}
+          gkLower={gkLower}             setGkLower={setGkLower}
+          gkCutPct={gkCutPct}           setGkCutPct={setGkCutPct}
+          gkBoostPct={gkBoostPct}       setGkBoostPct={setGkBoostPct}
           incomes={incomes}             setIncomes={setIncomes}
           extras={extras}               setExtras={setExtras}
           newInc={newInc}               setNewInc={setNewInc}
